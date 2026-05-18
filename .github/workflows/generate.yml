@@ -2,14 +2,20 @@ name: Generate Contribution Animation
 
 on:
   schedule:
-    # 每天 UTC 00:00 自动运行（北京时间早上 8 点）
+    # 每天 UTC 00:00 自动运行
     - cron: "0 0 * * *"
-  # 也允许手动触发
+  # 允许手动触发
   workflow_dispatch:
+
+# 需要写入权限才能 push 生成的 SVG 回仓库
+permissions:
+  contents: write
 
 jobs:
   generate:
     runs-on: ubuntu-latest
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -18,14 +24,13 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "22"
-          cache: "npm"
 
       - name: Install dependencies
-        run: npm ci
+        run: npm install
 
       - name: Generate config
         run: |
-          cat > config.yml << EOF
+          cat > config.yml <<'YML'
           github:
             username: ${{ github.repository_owner }}
             token: "${{ secrets.GH_TOKEN }}"
@@ -38,15 +43,15 @@ jobs:
             cell_gap: 2
             transition_ms: 1500
             toggle_interval_ms: 5000
-          EOF
+          YML
 
       - name: Generate SVG
         run: npx tsx src/index.ts
 
-      - name: Commit & Push
+      - name: Commit and push
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add output.svg
-          git diff --staged --quiet || git commit -m "chore: update contribution animation"
+          git diff --staged --quiet || git commit -m "chore: update contribution animation [skip ci]"
           git push
