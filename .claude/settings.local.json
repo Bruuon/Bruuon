@@ -9,7 +9,8 @@
       "Bash(bash -)",
       "Bash(apt-get install *)",
       "Bash(npx tsx *)",
-      "Bash(node *)"
+      "Bash(node *)",
+      "WebFetch(domain:raw.githubusercontent.com)"
     ]
   }
 }

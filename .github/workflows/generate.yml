@@ -32,6 +32,7 @@ jobs:
         env:
           SP_GITHUB_USERNAME: ${{ github.repository_owner }}
           SP_GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+          SP_IMAGE_PATH: my-image.png
         run: npx tsx src/index.ts
 
       - name: Commit and push
