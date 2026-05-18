@@ -1,0 +1,52 @@
+name: Generate Contribution Animation
+
+on:
+  schedule:
+    # 每天 UTC 00:00 自动运行（北京时间早上 8 点）
+    - cron: "0 0 * * *"
+  # 也允许手动触发
+  workflow_dispatch:
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate config
+        run: |
+          cat > config.yml << EOF
+          github:
+            username: ${{ github.repository_owner }}
+            token: "${{ secrets.GH_TOKEN }}"
+          image:
+            path: ""
+            blur_sigma: 1.2
+          output:
+            file: output.svg
+            cell_size: 12
+            cell_gap: 2
+            transition_ms: 1500
+            toggle_interval_ms: 5000
+          EOF
+
+      - name: Generate SVG
+        run: npx tsx src/index.ts
+
+      - name: Commit & Push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add output.svg
+          git diff --staged --quiet || git commit -m "chore: update contribution animation"
+          git push
