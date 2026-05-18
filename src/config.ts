@@ -31,14 +31,23 @@ const defaults: Config = {
  */
 export const loadConfig = (path = "config.yml"): Config => {
   const resolved = resolve(path);
+  let config = structuredClone(defaults);
 
-  if (!existsSync(resolved)) {
-    console.warn(`⚠ config.yml not found, using defaults`);
-    return defaults;
+  if (existsSync(resolved)) {
+    const raw = readFileSync(resolved, "utf-8");
+    config = parseSimpleYaml(raw, defaults);
+  } else {
+    console.warn("⚠ config.yml not found, using defaults + env vars");
   }
 
-  const raw = readFileSync(resolved, "utf-8");
-  return parseSimpleYaml(raw, defaults);
+  // Environment variables override config file values (for CI/CD)
+  config.github.username = process.env.SP_GITHUB_USERNAME || config.github.username;
+  config.github.token = process.env.SP_GITHUB_TOKEN || config.github.token;
+  config.image.path = process.env.SP_IMAGE_PATH || config.image.path;
+  if (process.env.SP_BLUR_SIGMA) config.image.blur_sigma = Number(process.env.SP_BLUR_SIGMA);
+  if (process.env.SP_OUTPUT_FILE) config.output.file = process.env.SP_OUTPUT_FILE;
+
+  return config;
 };
 
 // ─── Minimal YAML parser (handles our config format) ───────────────────

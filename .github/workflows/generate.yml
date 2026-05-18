@@ -28,24 +28,10 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      - name: Generate config
-        run: |
-          cat > config.yml <<'YML'
-          github:
-            username: ${{ github.repository_owner }}
-            token: "${{ secrets.GH_TOKEN }}"
-          image:
-            path: ""
-            blur_sigma: 1.2
-          output:
-            file: output.svg
-            cell_size: 12
-            cell_gap: 2
-            transition_ms: 1500
-            toggle_interval_ms: 5000
-          YML
-
       - name: Generate SVG
+        env:
+          SP_GITHUB_USERNAME: ${{ github.repository_owner }}
+          SP_GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
         run: npx tsx src/index.ts
 
       - name: Commit and push
