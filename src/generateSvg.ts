@@ -1,6 +1,5 @@
 import type { Cell } from "./types";
 
-// GitHub's standard contribution color palette (light mode)
 const CONTRIB_COLORS: Record<number, string> = {
   0: "#ebedf0",
   1: "#9be9a8",
@@ -26,8 +25,11 @@ const defaults: Options = {
 };
 
 /**
- * Generate an animated SVG where each contribution cell smoothly transitions
- * between real contribution colors and image-derived colors every 5 seconds.
+ * Generate an animated SVG where the contribution grid smoothly crossfades
+ * into an image-mapped version every N seconds.
+ *
+ * Uses pure CSS animation (opacity crossfade between two layers) because
+ * GitHub README strips <script> tags from SVGs.
  */
 export const generateSvg = (
   cells: Cell[],
@@ -35,7 +37,7 @@ export const generateSvg = (
   opts: Partial<Options> = {},
 ): string => {
   const o = { ...defaults, ...opts };
-  const { cellSize, cellGap, cellRadius, toggleIntervalMs } = o;
+  const { cellSize, cellGap, cellRadius } = o;
 
   const width = cells.reduce((max, c) => Math.max(max, c.x), 0) + 1;
   const height = 7;
@@ -50,16 +52,11 @@ export const generateSvg = (
 
   const monthLabels = getMonthLabels(cells);
 
-  // Build day-of-week labels (show only Mon, Wed, Fri when those rows exist)
   const dayLabels = [
-    { y: 0, label: "Sun" },
     { y: 1, label: "Mon" },
-    { y: 2, label: "Tue" },
     { y: 3, label: "Wed" },
-    { y: 4, label: "Thu" },
     { y: 5, label: "Fri" },
-    { y: 6, label: "Sat" },
-  ].filter((_, i) => i % 2 === 1); // Show only odd rows: Mon, Wed, Fri
+  ];
 
   // ─── Build SVG ──────────────────────────────────────────────────────
 
@@ -69,8 +66,7 @@ export const generateSvg = (
     `<svg viewBox="0 0 ${svgW} ${svgH}" width="${svgW}" height="${svgH}" xmlns="http://www.w3.org/2000/svg">`,
   );
 
-  // Dark mode support
-  parts.push("<style>", generateStyles(o, width, height), "</style>");
+  parts.push("<style>", generateStyles(o), "</style>");
 
   // Month labels
   for (const { x, label } of monthLabels) {
@@ -86,19 +82,21 @@ export const generateSvg = (
     );
   }
 
-  // Cell rects
-  for (const c of cells) {
-    const contribColor = CONTRIB_COLORS[c.level] ?? CONTRIB_COLORS[0];
-    const imgColor = imageColors[c.x]?.[c.y] ?? contribColor;
-    const x = margin + c.x * step;
-    const y = margin + c.y * step;
+  // ─── Two layers: contribution (visible first) + image (hidden first) ──
 
-    parts.push(
-      `<rect class="c" x="${x}" y="${y}" ` +
-        `width="${cellSize}" height="${cellSize}" rx="${cellRadius}" ` +
-        `style="--c:${contribColor};--i:${imgColor}" />`,
-    );
+  parts.push('<g class="layer-c">');
+  for (const c of cells) {
+    const color = CONTRIB_COLORS[c.level] ?? CONTRIB_COLORS[0];
+    parts.push(cellRect(c.x, c.y, color, margin, step, cellSize, cellRadius));
   }
+  parts.push("</g>");
+
+  parts.push('<g class="layer-i">');
+  for (const c of cells) {
+    const color = imageColors[c.x]?.[c.y] ?? CONTRIB_COLORS[0];
+    parts.push(cellRect(c.x, c.y, color, margin, step, cellSize, cellRadius));
+  }
+  parts.push("</g>");
 
   // Legend
   const legendY = svgH - 14;
@@ -111,46 +109,69 @@ export const generateSvg = (
     `<text x="${margin + gridW - 60}" y="${legendY}" class="lg">Image</text>`,
   );
 
-  // Embedded toggle script
-  parts.push(
-    "<script type='text/javascript'><![CDATA[",
-    `  var s=document.querySelector('svg');`,
-    `  setInterval(function(){s.classList.toggle('i')},${toggleIntervalMs});`,
-    "]]></script>",
-  );
-
   parts.push("</svg>");
 
   return parts.join("\n");
 };
 
-// ─── CSS Styles ───────────────────────────────────────────────────────
+// ─── Rect helper ──────────────────────────────────────────────────────
 
-const generateStyles = (o: Options, _w: number, _h: number) => `
-  .c {
-    fill: var(--c);
-    transition: fill ${o.transitionMs}ms ease-in-out;
-    shape-rendering: geometricPrecision;
-  }
-  svg.i .c {
-    fill: var(--i);
-  }
-  .ml { font: 10px sans-serif; fill: #57606a; }
-  .dl { font: 10px sans-serif; fill: #57606a; text-anchor: end; }
-  .lg { font: 10px sans-serif; fill: #57606a; }
+const cellRect = (
+  x: number,
+  y: number,
+  color: string,
+  margin: number,
+  step: number,
+  size: number,
+  radius: number,
+) =>
+  `<rect x="${margin + x * step}" y="${margin + y * step}" ` +
+  `width="${size}" height="${size}" rx="${radius}" fill="${color}" />`;
 
-  @media (prefers-color-scheme: dark) {
-    .c {
-      fill: var(--c);
-      transition: fill ${o.transitionMs}ms ease-in-out;
+// ─── CSS Styles (pure animation, no JS) ────────────────────────────────
+
+const generateStyles = (o: Options) => {
+  // Timeline for a full cycle (2 × toggleIntervalMs):
+  //
+  //   0%      35%     50%            85%     100%
+  //   |--------|-------|--------------|--------|
+  //   contrib  fade→  image visible   fade→   loop
+  //   visible         (3.5s)          back
+  //
+  const totalMs = o.toggleIntervalMs * 2;
+  const fadeOut = ((o.toggleIntervalMs - o.transitionMs) / totalMs) * 100;
+  const switchPt = (o.toggleIntervalMs / totalMs) * 100;
+  const fadeBack = ((totalMs - o.transitionMs) / totalMs) * 100;
+
+  return `
+    .layer-c {
+      animation: animC ${totalMs}ms ease-in-out infinite;
     }
-    svg.i .c {
-      fill: var(--i);
+    .layer-i {
+      animation: animI ${totalMs}ms ease-in-out infinite;
     }
-    .ml, .dl, .lg { fill: #8b949e; }
-    svg { background: #0d1117; border-radius: 6px; }
-  }
-`;
+
+    @keyframes animC {
+      0%, ${fadeOut.toFixed(1)}% { opacity: 1; }
+      ${switchPt.toFixed(1)}%, ${fadeBack.toFixed(1)}% { opacity: 0; }
+      100% { opacity: 1; }
+    }
+    @keyframes animI {
+      0%, ${fadeOut.toFixed(1)}% { opacity: 0; }
+      ${switchPt.toFixed(1)}%, ${fadeBack.toFixed(1)}% { opacity: 1; }
+      100% { opacity: 0; }
+    }
+
+    .ml { font: 10px sans-serif; fill: #57606a; }
+    .dl { font: 10px sans-serif; fill: #57606a; text-anchor: end; }
+    .lg { font: 10px sans-serif; fill: #57606a; }
+
+    @media (prefers-color-scheme: dark) {
+      .ml, .dl, .lg { fill: #8b949e; }
+      svg { background: #0d1117; border-radius: 6px; }
+    }
+  `;
+};
 
 // ─── Month label extraction ────────────────────────────────────────────
 
