@@ -25,11 +25,11 @@ const defaults: Options = {
 };
 
 /**
- * Generate an animated SVG where the contribution grid smoothly crossfades
- * into an image-mapped version every N seconds.
+ * Generate an animated SVG where each cell's fill animates between
+ * its contribution color and image-mapped color.
  *
- * Uses pure CSS animation (opacity crossfade between two layers) because
- * GitHub README strips <script> tags from SVGs.
+ * Uses per-color-pair @keyframes (same strategy as snk) so the animation
+ * survives GitHub's <img>-tag rendering — no JS, no opacity-on-groups.
  */
 export const generateSvg = (
   cells: Cell[],
@@ -58,6 +58,20 @@ export const generateSvg = (
     { y: 5, label: "Fri" },
   ];
 
+  // Group cells by unique (contribColor, imageColor) pairs
+  // so we generate one @keyframes per unique pair, not per cell
+  const pairMap = new Map<string, { contrib: string; image: string; cells: Cell[] }>();
+  for (const c of cells) {
+    const contrib = CONTRIB_COLORS[c.level] ?? CONTRIB_COLORS[0];
+    const image = imageColors[c.x]?.[c.y] ?? contrib;
+    const key = `${contrib}|${image}`;
+    if (!pairMap.has(key)) {
+      pairMap.set(key, { contrib, image, cells: [] });
+    }
+    pairMap.get(key)!.cells.push(c);
+  }
+  const pairs = [...pairMap.values()];
+
   // ─── Build SVG ──────────────────────────────────────────────────────
 
   const parts: string[] = [];
@@ -66,7 +80,7 @@ export const generateSvg = (
     `<svg viewBox="0 0 ${svgW} ${svgH}" width="${svgW}" height="${svgH}" xmlns="http://www.w3.org/2000/svg">`,
   );
 
-  parts.push("<style>", generateStyles(o), "</style>");
+  parts.push("<style>", generateStyles(o, pairs), "</style>");
 
   // Month labels
   for (const { x, label } of monthLabels) {
@@ -82,21 +96,17 @@ export const generateSvg = (
     );
   }
 
-  // ─── Two layers: contribution (visible first) + image (hidden first) ──
-
-  parts.push('<g class="layer-c">');
-  for (const c of cells) {
-    const color = CONTRIB_COLORS[c.level] ?? CONTRIB_COLORS[0];
-    parts.push(cellRect(c.x, c.y, color, margin, step, cellSize, cellRadius));
+  // Cell rects — one per cell, each referencing its color-pair group
+  for (let i = 0; i < pairs.length; i++) {
+    for (const c of pairs[i].cells) {
+      const x = margin + c.x * step;
+      const y = margin + c.y * step;
+      parts.push(
+        `<rect class="c g${i}" x="${x}" y="${y}" ` +
+          `width="${cellSize}" height="${cellSize}" rx="${cellRadius}" />`,
+      );
+    }
   }
-  parts.push("</g>");
-
-  parts.push('<g class="layer-i">');
-  for (const c of cells) {
-    const color = imageColors[c.x]?.[c.y] ?? CONTRIB_COLORS[0];
-    parts.push(cellRect(c.x, c.y, color, margin, step, cellSize, cellRadius));
-  }
-  parts.push("</g>");
 
   // Legend
   const legendY = svgH - 14;
@@ -114,63 +124,53 @@ export const generateSvg = (
   return parts.join("\n");
 };
 
-// ─── Rect helper ──────────────────────────────────────────────────────
+// ─── CSS Styles ───────────────────────────────────────────────────────
 
-const cellRect = (
-  x: number,
-  y: number,
-  color: string,
-  margin: number,
-  step: number,
-  size: number,
-  radius: number,
-) =>
-  `<rect x="${margin + x * step}" y="${margin + y * step}" ` +
-  `width="${size}" height="${size}" rx="${radius}" fill="${color}" />`;
-
-// ─── CSS Styles (pure animation, no JS) ────────────────────────────────
-
-const generateStyles = (o: Options) => {
-  // Timeline for a full cycle (2 × toggleIntervalMs):
-  //
-  //   0%      35%     50%            85%     100%
-  //   |--------|-------|--------------|--------|
-  //   contrib  fade→  image visible   fade→   loop
-  //   visible         (3.5s)          back
-  //
+const generateStyles = (
+  o: Options,
+  pairs: { contrib: string; image: string }[],
+) => {
   const totalMs = o.toggleIntervalMs * 2;
   const fadeOut = ((o.toggleIntervalMs - o.transitionMs) / totalMs) * 100;
   const switchPt = (o.toggleIntervalMs / totalMs) * 100;
   const fadeBack = ((totalMs - o.transitionMs) / totalMs) * 100;
 
-  return `
-    .layer-c {
-      animation: animC ${totalMs}ms ease-in-out infinite;
-    }
-    .layer-i {
-      animation: animI ${totalMs}ms ease-in-out infinite;
-    }
+  const css: string[] = [];
 
-    @keyframes animC {
-      0%, ${fadeOut.toFixed(1)}% { opacity: 1; }
-      ${switchPt.toFixed(1)}%, ${fadeBack.toFixed(1)}% { opacity: 0; }
-      100% { opacity: 1; }
-    }
-    @keyframes animI {
-      0%, ${fadeOut.toFixed(1)}% { opacity: 0; }
-      ${switchPt.toFixed(1)}%, ${fadeBack.toFixed(1)}% { opacity: 1; }
-      100% { opacity: 0; }
-    }
+  // Base cell style — animation is "none" by default
+  css.push(
+    `.c {`,
+    `  animation: none ${totalMs}ms ease-in-out infinite;`,
+    `  shape-rendering: geometricPrecision;`,
+    `}`,
+  );
 
-    .ml { font: 10px sans-serif; fill: #57606a; }
-    .dl { font: 10px sans-serif; fill: #57606a; text-anchor: end; }
-    .lg { font: 10px sans-serif; fill: #57606a; }
+  // Per-pair @keyframes + class that enables it
+  for (let i = 0; i < pairs.length; i++) {
+    const { contrib, image } = pairs[i];
+    const name = `k${i}`;
+    css.push(
+      `.c.g${i} { animation-name: ${name}; }`,
+      `@keyframes ${name} {`,
+      `  0%, ${fadeOut.toFixed(1)}% { fill: ${contrib}; }`,
+      `  ${switchPt.toFixed(1)}%, ${fadeBack.toFixed(1)}% { fill: ${image}; }`,
+      `  100% { fill: ${contrib}; }`,
+      `}`,
+    );
+  }
 
-    @media (prefers-color-scheme: dark) {
-      .ml, .dl, .lg { fill: #8b949e; }
-      svg { background: #0d1117; border-radius: 6px; }
-    }
-  `;
+  // Labels
+  css.push(
+    `.ml { font: 10px sans-serif; fill: #57606a; }`,
+    `.dl { font: 10px sans-serif; fill: #57606a; text-anchor: end; }`,
+    `.lg { font: 10px sans-serif; fill: #57606a; }`,
+    `@media (prefers-color-scheme: dark) {`,
+    `  .ml, .dl, .lg { fill: #8b949e; }`,
+    `  svg { background: #0d1117; border-radius: 6px; }`,
+    `}`,
+  );
+
+  return css.join("\n");
 };
 
 // ─── Month label extraction ────────────────────────────────────────────
