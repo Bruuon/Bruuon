@@ -6,6 +6,7 @@ export type Config = {
   image: { path: string; blur_sigma: number };
   output: {
     file: string;
+    render_mode: "colorFill" | "imageClip";
     cell_size: number;
     cell_gap: number;
     transition_ms: number;
@@ -18,6 +19,7 @@ const defaults: Config = {
   image: { path: "", blur_sigma: 1.2 },
   output: {
     file: "output.svg",
+    render_mode: "colorFill",
     cell_size: 12,
     cell_gap: 2,
     transition_ms: 1500,
@@ -46,6 +48,7 @@ export const loadConfig = (path = "config.yml"): Config => {
   config.image.path = process.env.SP_IMAGE_PATH || config.image.path;
   if (process.env.SP_BLUR_SIGMA) config.image.blur_sigma = Number(process.env.SP_BLUR_SIGMA);
   if (process.env.SP_OUTPUT_FILE) config.output.file = process.env.SP_OUTPUT_FILE;
+  if (process.env.SP_RENDER_MODE) config.output.render_mode = process.env.SP_RENDER_MODE as Config["output"]["render_mode"];
 
   return config;
 };

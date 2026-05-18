@@ -116,6 +116,7 @@ const gaussianBlur = (
   channels: number,
   sigma: number,
 ): Uint8ClampedArray => {
+  if (sigma <= 0) return data; // no blur — pixel-perfect mosaic
   const kernel = createKernel(sigma);
   const radius = Math.floor(kernel.length / 2);
 
@@ -162,6 +163,8 @@ const gaussianBlur = (
 };
 
 const createKernel = (sigma: number): number[] => {
+  // sigma = 0 means no blur — identity kernel
+  if (sigma <= 0) return [1];
   const radius = Math.ceil(sigma * 2.5);
   const k: number[] = [];
   let sum = 0;

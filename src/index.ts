@@ -2,12 +2,15 @@ import { writeFileSync } from "node:fs";
 import { PNG } from "pngjs";
 import { fetchContributions, fetchContributionsHtml } from "./fetchContributions";
 import { processImage } from "./imageProcessor";
-import { generateSvg } from "./generateSvg";
+import { generateColorFillSvg } from "./renderers/colorFill";
+import { generateImageClipSvg } from "./renderers/imageClip";
 import { cellsToGrid } from "./types";
+import type { RenderMode } from "./types";
 import { loadConfig } from "./config";
 
 const config = loadConfig("config.yml");
 const { github, image, output } = config;
+const mode: RenderMode = output.render_mode;
 
 console.log(`📡 Fetching contribution data for "${github.username}"...`);
 
@@ -25,21 +28,28 @@ console.log(`✅ Got ${cells.length} cells (${grid.width} weeks × ${grid.height
 
 // Use provided image or generate demo gradient
 const imagePath = image.path || createDemoImage(grid.width, grid.height);
-console.log(`🖼  Processing image: ${imagePath}  (blur σ=${image.blur_sigma})`);
 
-const imageColors = await processImage(imagePath, grid.width, grid.height, image.blur_sigma);
-
-console.log(`🎨 Generating SVG...`);
-const svg = generateSvg(cells, imageColors, {
+const svgOptions = {
   cellSize: output.cell_size,
   cellGap: output.cell_gap,
   transitionMs: output.transition_ms,
   toggleIntervalMs: output.toggle_interval_ms,
-});
+};
+
+let svg: string;
+
+if (mode === "imageClip") {
+  console.log(`🖼  Mode: imageClip — embedding "${imagePath}" at full resolution`);
+  svg = generateImageClipSvg(cells, imagePath, svgOptions);
+} else {
+  console.log(`🖼  Mode: colorFill — processing "${imagePath}" (blur σ=${image.blur_sigma})`);
+  const imageColors = await processImage(imagePath, grid.width, grid.height, image.blur_sigma);
+  svg = generateColorFillSvg(cells, imageColors, svgOptions);
+}
 
 writeFileSync(output.file, svg, "utf-8");
 console.log(`✅ Written to ${output.file}`);
-console.log(`   Open it in a browser to see the animated toggle effect.`);
+console.log(`   Mode: ${mode}  |  Open in browser to see the toggle animation.`);
 
 // ─── Demo image generator ──────────────────────────────────────────────
 
