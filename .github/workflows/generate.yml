@@ -36,10 +36,11 @@ jobs:
           SP_RENDER_MODE: "imageClip"
         run: npx tsx src/index.ts
 
-      - name: Commit and push
+      - name: Push to output branch
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
+          git checkout --orphan output
           git add -f output.svg
-          git diff --staged --quiet || git commit -m "chore: update contribution animation [skip ci]"
-          git push
+          git commit -m "chore: update contribution animation [skip ci]" || true
+          git push -f origin output

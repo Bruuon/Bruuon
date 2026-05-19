@@ -1,5 +1,1 @@
-
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="output.svg" />
-  <img alt="GitHub contribution grid animation" src="output.svg" />
-</picture>
+<img alt="GitHub contribution grid animation" src="https://raw.githubusercontent.com/Bruuon/Bruuon/output/output.svg" />
