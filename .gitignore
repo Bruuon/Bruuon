@@ -3,3 +3,5 @@ dist/
 output.svg
 demo-image.png
 config.yml
+.idea/
+.claude
