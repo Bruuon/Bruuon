@@ -36,11 +36,23 @@ jobs:
           SP_RENDER_MODE: "imageClip"
         run: npx tsx src/index.ts
 
-      - name: Push to output branch
+      - name: Push to output branch & bump cache-buster
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Push SVG to orphan output branch
           git checkout --orphan output
           git add -f output.svg
           git commit -m "chore: update contribution animation [skip ci]" || true
           git push -f origin output
+
+          # Capture commit SHA for cache-buster
+          SHORT_SHA=$(git rev-parse --short HEAD)
+
+          # Back to main, update README cache-buster
+          git checkout main
+          sed -i "s|output\.svg[?\"]*|output.svg?v=${SHORT_SHA}\"|" README.md
+          git add README.md
+          git diff --staged --quiet || git commit -m "chore: bump cache-buster [skip ci]"
+          git push origin main
