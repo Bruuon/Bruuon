@@ -1,5 +1,22 @@
 import { readFileSync } from "node:fs";
 import { PNG } from "pngjs";
+import jpeg from "jpeg-js";
+
+type RawImage = { data: Uint8Array; width: number; height: number };
+
+const decodeImage = (buf: Buffer): RawImage => {
+  // PNG magic: 89 50 4E 47
+  if (buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4e && buf[3] === 0x47) {
+    const png = PNG.sync.read(buf);
+    return { data: png.data, width: png.width, height: png.height };
+  }
+  // JPEG magic: FF D8 FF
+  if (buf[0] === 0xff && buf[1] === 0xd8 && buf[2] === 0xff) {
+    const raw = jpeg.decode(buf, { useTArray: true });
+    return { data: raw.data, width: raw.width, height: raw.height };
+  }
+  throw new Error("Unsupported image format (only PNG / JPEG accepted)");
+};
 
 /**
  * Process an image for contribution-grid mapping:
@@ -15,9 +32,9 @@ export const processImage = async (
   sigma: number = 1.2,
 ): Promise<string[][]> => {
   const buf = readFileSync(imagePath);
-  const png = PNG.sync.read(buf);
+  const img = decodeImage(buf);
 
-  const resized = resizeCover(png, gridWidth, gridHeight);
+  const resized = resizeCover(img, gridWidth, gridHeight);
   const blurred = gaussianBlur(resized.data, gridWidth, gridHeight, 4, sigma);
 
   const colors: string[][] = [];
@@ -40,12 +57,12 @@ export const processImage = async (
 // ─── Resize with center-cover crop ─────────────────────────────────────
 
 const resizeCover = (
-  png: PNG,
+  img: RawImage,
   targetW: number,
   targetH: number,
 ): { data: Uint8ClampedArray; width: number; height: number } => {
-  const srcW = png.width;
-  const srcH = png.height;
+  const srcW = img.width;
+  const srcH = img.height;
   const targetAspect = targetW / targetH;
   const srcAspect = srcW / srcH;
 
@@ -69,7 +86,7 @@ const resizeCover = (
     for (let x = 0; x < targetW; x++) {
       const sx = offX + ((x + 0.5) / targetW) * cropW;
       const sy = offY + ((y + 0.5) / targetH) * cropH;
-      sampleBilinear(png.data, srcW, srcH, sx, sy, out, (y * targetW + x) * 4);
+      sampleBilinear(img.data, srcW, srcH, sx, sy, out, (y * targetW + x) * 4);
     }
   }
 

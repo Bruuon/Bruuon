@@ -34,6 +34,8 @@ jobs:
           SP_GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
           SP_IMAGE_PATH: my-image.png
           SP_RENDER_MODE: "imageClip"
+          SP_BLUR_ENABLED: "true"
+          SP_BLUR_SIGMA: "1.2"
         run: npx tsx src/index.ts
 
       - name: Push to output branch & bump cache-buster

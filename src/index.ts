@@ -4,13 +4,15 @@ import { fetchContributions, fetchContributionsHtml } from "./fetchContributions
 import { processImage } from "./imageProcessor";
 import { generateColorFillSvg } from "./renderers/colorFill";
 import { generateImageClipSvg } from "./renderers/imageClip";
+import { generateScatterSvg } from "./renderers/scatter";
 import { cellsToGrid } from "./types";
 import type { RenderMode } from "./types";
 import { loadConfig } from "./config";
 
 const config = loadConfig("config.yml");
-const { github, image, output } = config;
+const { github, image, blur, output } = config;
 const mode: RenderMode = output.render_mode;
+const blurSigma = blur.enabled ? blur.sigma : 0;
 
 console.log(`📡 Fetching contribution data for "${github.username}"...`);
 
@@ -41,9 +43,20 @@ let svg: string;
 if (mode === "imageClip") {
   console.log(`🖼  Mode: imageClip — embedding "${imagePath}" at full resolution`);
   svg = generateImageClipSvg(cells, imagePath, svgOptions);
+} else if (mode === "scatter") {
+  const S = Math.ceil(Math.sqrt(cells.length));
+  if (blur.enabled) {
+    console.log(`🖼  Mode: scatter (pixel) — processing "${imagePath}" to ${S}×${S} square (blur σ=${blur.sigma})`);
+    const imageColors = await processImage(imagePath, S, S, blurSigma);
+    svg = generateScatterSvg(cells, imageColors, svgOptions);
+  } else {
+    console.log(`🖼  Mode: scatter (highres) — embedding "${imagePath}" at full resolution`);
+    const dummy = Array.from({ length: S }, () => Array(S).fill("#ebedf0"));
+    svg = generateScatterSvg(cells, dummy, svgOptions, imagePath);
+  }
 } else {
-  console.log(`🖼  Mode: colorFill — processing "${imagePath}" (blur σ=${image.blur_sigma})`);
-  const imageColors = await processImage(imagePath, grid.width, grid.height, image.blur_sigma);
+  console.log(`🖼  Mode: colorFill — processing "${imagePath}" (blur ${blur.enabled ? `σ=${blur.sigma}` : "off"})`);
+  const imageColors = await processImage(imagePath, grid.width, grid.height, blurSigma);
   svg = generateColorFillSvg(cells, imageColors, svgOptions);
 }
 

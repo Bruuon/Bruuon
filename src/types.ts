@@ -32,7 +32,7 @@ export const setColor = (grid: Grid, x: number, y: number, level: number) => {
 export const isInside = (grid: Grid, x: number, y: number) =>
   x >= 0 && y >= 0 && x < grid.width && y < grid.height;
 
-export type RenderMode = "colorFill" | "imageClip";
+export type RenderMode = "colorFill" | "imageClip" | "scatter";
 
 /** Convert a flat list of cells into a 2D grid */
 export const cellsToGrid = (cells: Cell[]): Grid => {

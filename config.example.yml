@@ -8,11 +8,14 @@ github:
 
 image:
   path: ""                          # 自定义图片路径（留空则自动生成彩虹渐变 demo）
-  blur_sigma: 1.2                   # 高斯模糊强度 (越大越模糊; 设为 0 则关闭模糊，呈现像素马赛克效果)
+
+blur:
+  enabled: true                     # 是否开启高斯模糊 (true=模糊, false=像素马赛克)
+  sigma: 1.2                        # 模糊强度 (越大越模糊，推荐 1.0~2.0；仅 enabled=true 时生效)
 
 output:
   file: output.svg                  # 生成的 SVG 文件名
-  render_mode: "colorFill"          # 渲染模式: "colorFill" (像素色填充) | "imageClip" (高清贴图)
+  render_mode: "colorFill"          # 渲染模式: "colorFill" | "imageClip" | "scatter"
   cell_size: 12                     # 每个格子大小 (px)
   cell_gap: 2                       # 格子间距 (px)
   transition_ms: 1500               # 颜色过渡时间 (毫秒)
