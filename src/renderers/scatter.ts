@@ -140,13 +140,22 @@ export const generateScatterSvg = (
     }
   }
 
-  // Labels
+  // ── Labels: fade out during square phase, fade in at grid ────────
+  // Wrapped in a group with SMIL opacity animation; shared for both modes.
+  const labelAnim =
+    `<animate attributeName="opacity" ` +
+    `values="1;1;0;0;1" ` +
+    `keyTimes="0;${kt(fadeOut)};${kt(switchPt)};${kt(fadeBack)};1" ` +
+    `dur="${totalMs}ms" repeatCount="indefinite"/>`;
+
+  parts.push("<g>", labelAnim);
   parts.push(...monthLabelElements(cells, fullLayout));
   parts.push(...dayLabelElements(fullLayout));
   parts.push(
     `<text x="${margin}" y="${margin + gridLayout.gridH + 30}" class="sll">Contribution grid</text>`,
     `<text x="${margin}" y="${squareTop - 10}" class="sll">Image</text>`,
   );
+  parts.push("</g>"); // close label group before cells
 
   // ── Cell elements with SMIL animation (highres) ──────────────────
   if (isHighRes) {
@@ -186,7 +195,9 @@ export const generateScatterSvg = (
     }
   }
 
+  parts.push("<g>", labelAnim);
   parts.push(...scatterLegend(fullLayout));
+  parts.push("</g>"); // close legend group
   parts.push("</svg>");
   return parts.join("\n");
 };
