@@ -57,7 +57,7 @@ export const generateScatterSvg = (
   const squareStep = step;
   const squareWH = S * squareStep - o.cellGap;
   const squareLeft = margin + (gridW - squareWH) / 2;
-  const squareTop = margin + gridLayout.gridH + 60;
+  const squareTop = margin; // overlap: square starts at same y as grid
 
   const svgH = squareTop + squareWH + margin + gridLayout.labelH + 20;
   const fullLayout: Layout = { ...gridLayout, svgH };
@@ -153,7 +153,7 @@ export const generateScatterSvg = (
   parts.push(...dayLabelElements(fullLayout));
   parts.push(
     `<text x="${margin}" y="${margin + gridLayout.gridH + 30}" class="sll">Contribution grid</text>`,
-    `<text x="${margin}" y="${squareTop - 10}" class="sll">Image</text>`,
+    `<text x="${margin + 120}" y="${margin + gridLayout.gridH + 30}" class="sll">Image</text>`,
   );
   parts.push("</g>"); // close label group before cells
 
