@@ -59,6 +59,10 @@ export const generateScatterSvg = (
   const squareLeft = margin + (gridW - squareWH) / 2;
   const squareTop = margin; // overlap: square starts at same y as grid
 
+  // Shift grid cells down to center them within the taller square area.
+  // Square destination is unchanged; only the contribution-grid phase moves.
+  const gridOffsetY = Math.round((squareWH - gridLayout.gridH) / 2);
+
   const svgH = squareTop + squareWH + margin + gridLayout.labelH + 20;
   const fullLayout: Layout = { ...gridLayout, svgH };
 
@@ -71,11 +75,11 @@ export const generateScatterSvg = (
       contribColor: CONTRIB_COLORS[cell.level] ?? CONTRIB_COLORS[0],
       imageColor: imageColors[i % S]?.[Math.floor(i / S)] ?? "#ebedf0",
       gridX: margin + cell.x * step,
-      gridY: margin + cell.y * step,
+      gridY: margin + cell.y * step + gridOffsetY,
       sx,
       sy,
       tx: sx - (margin + cell.x * step),
-      ty: sy - (margin + cell.y * step),
+      ty: sy - (margin + cell.y * step + gridOffsetY),
     };
   });
 
@@ -149,11 +153,13 @@ export const generateScatterSvg = (
     `dur="${totalMs}ms" repeatCount="indefinite"/>`;
 
   parts.push("<g>", labelAnim);
+  parts.push(`<g transform="translate(0, ${gridOffsetY})">`);
   parts.push(...monthLabelElements(cells, fullLayout));
   parts.push(...dayLabelElements(fullLayout));
+  parts.push("</g>");
   parts.push(
-    `<text x="${margin}" y="${margin + gridLayout.gridH + 30}" class="sll">Contribution grid</text>`,
-    `<text x="${margin + 120}" y="${margin + gridLayout.gridH + 30}" class="sll">Image</text>`,
+    `<text x="${margin}" y="${margin + gridLayout.gridH + gridOffsetY + 30}" class="sll">Contribution grid</text>`,
+    `<text x="${margin + 120}" y="${margin + gridLayout.gridH + gridOffsetY + 30}" class="sll">Image</text>`,
   );
   parts.push("</g>"); // close label group before cells
 
@@ -196,7 +202,7 @@ export const generateScatterSvg = (
   }
 
   parts.push("<g>", labelAnim);
-  parts.push(...scatterLegend(fullLayout));
+  parts.push(...scatterLegend(fullLayout, gridOffsetY));
   parts.push("</g>"); // close legend group
   parts.push("</svg>");
   return parts.join("\n");
@@ -241,9 +247,9 @@ const generatePixelCss = (o: RenderOptions, groups: CellAnim[][]): string => {
 
 // ── Legend ───────────────────────────────────────────────────────────
 
-const scatterLegend = (layout: Layout): string[] => {
-  const { margin, cellSize, gridW, svgH } = layout;
-  const legendY = svgH - 14;
+const scatterLegend = (layout: Layout, yOffset: number): string[] => {
+  const { margin, cellSize, gridH } = layout;
+  const legendY = margin + gridH + yOffset + 18;
   return [
     `<text x="${margin}" y="${legendY}" class="lg">Contributions</text>`,
     ...Object.entries(CONTRIB_COLORS).map(
@@ -251,6 +257,5 @@ const scatterLegend = (layout: Layout): string[] => {
         `<rect x="${margin + 80 + i * (cellSize + 2)}" y="${legendY - cellSize}" ` +
         `width="${cellSize}" height="${cellSize}" rx="2" fill="${color}" />`,
     ),
-    `<text x="${margin + gridW - 60}" y="${legendY}" class="lg">Image</text>`,
   ];
 };
