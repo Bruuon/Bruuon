@@ -17,7 +17,7 @@
 ---
 
 <p align="center">
-  <img alt="GitHub contribution grid animation" src="https://raw.githubusercontent.com/Bruuon/Bruuon/output/output.svg?v=6aa8e21"v=216dce3"v=b528cb8"v=14d9867"v=64e4a41"v=579c6a7"v=95bc395"v=d3bc333"v=282a6e8"v=d31728b"v=390bbdf"v=fa51a07"v=37187ea"v=0d19db2" />
+  <img alt="GitHub contribution grid animation" src="https://raw.githubusercontent.com/Bruuon/Bruuon/output/output.svg?v=eeb454d"v=6aa8e21"v=216dce3"v=b528cb8"v=14d9867"v=64e4a41"v=579c6a7"v=95bc395"v=d3bc333"v=282a6e8"v=d31728b"v=390bbdf"v=fa51a07"v=37187ea"v=0d19db2" />
 </p>
 
 > *"Wenn wir den Stand gewählt, in dem wir am meisten für die Menschheit wirken können, dann können uns Lasten nicht niederbeugen."*
