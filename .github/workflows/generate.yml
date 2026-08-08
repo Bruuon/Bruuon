@@ -1,0 +1,60 @@
+name: Generate Contribution Animation
+
+on:
+  schedule:
+    # 每天 UTC 00:00 自动运行
+    - cron: "0 0 * * *"
+  # 允许手动触发
+  workflow_dispatch:
+
+# 需要写入权限才能 push 生成的 SVG 回仓库
+permissions:
+  contents: write
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Generate SVG
+        env:
+          SP_GITHUB_USERNAME: ${{ github.repository_owner }}
+          SP_GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+          SP_IMAGE_PATH: img/sky.jpg
+          SP_RENDER_MODE: "scatter"
+          SP_BLUR_ENABLED: "false"
+          SP_BLUR_SIGMA: "1.2"
+        run: npx tsx src/index.ts
+
+      - name: Push to output branch & bump cache-buster
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Push SVG to orphan output branch
+          git checkout --orphan output
+          git add -f output.svg
+          git commit -m "chore: update contribution animation [skip ci]" || true
+          git push -f origin output
+
+          # Capture commit SHA for cache-buster
+          SHORT_SHA=$(git rev-parse --short HEAD)
+
+          # Back to main, update README cache-buster
+          git checkout main
+          sed -i "s|output\.svg[?\"]*|output.svg?v=${SHORT_SHA}\"|" README.md
+          git add README.md
+          git diff --staged --quiet || git commit -m "chore: bump cache-buster [skip ci]"
+          git push origin main
